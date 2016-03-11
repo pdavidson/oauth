@@ -7,6 +7,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.*;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
+import com.google.common.net.PercentEscaper;
 import com.google.common.net.UrlEscapers;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import static org.apache.catalina.util.URLEncoder.DEFAULT;
 
 @RestController
 public class OAuthController {
@@ -60,20 +63,19 @@ public class OAuthController {
     private void addParamsToSigningMap(Multimap<String, String> signingMap, Map<String, String[]> parameterMap) {
         parameterMap.entrySet().stream().forEach(entry ->
                 Arrays.asList(entry.getValue())
-                        .forEach(value -> signingMap.put(entry.getKey(), value)));
+                        .forEach(value -> signingMap.put(entry.getKey(), DEFAULT.encode(value))));
     }
 
 
     Map<String, String> toAuthorizationMap(String authorization) {
-        return authorizationSplitter.split(authorization.substring(6))
-                .entrySet().stream()
+        return authorizationSplitter.split(authorization.substring(6));
+                //.entrySet().stream()
     }
 
     void addOAuthParamsToSigningMap(Multimap<String, String> signingMap, Map<String, String> oauthParams){
-        Escaper escaper = UrlEscapers.urlFormParameterEscaper();
         oauthParams.entrySet().stream()
                 .filter(e -> OAUTH_SIGNED_PARAMS.contains(e.getKey()))
-                .forEach(e -> signingMap.put(e.getKey(), escaper.escape(e.getValue())));
+                .forEach(e -> signingMap.put(e.getKey(), e.getValue()));
     }
 
 
@@ -81,12 +83,4 @@ public class OAuthController {
         return  Joiner.on(",").withKeyValueSeparator("=").join(signingMap.entries());
     }
 
-
-    static class OAuthParamOrdering extends Ordering<String> {
-
-        @Override
-        public int compare(String left, String right) {
-            return left.compareTo(right);
-        }
-    }
 }
