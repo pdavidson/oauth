@@ -1,12 +1,13 @@
 package oauth;
 
+import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
-import com.google.common.collect.Multimaps;
+import com.google.common.collect.*;
+import com.google.common.escape.Escaper;
+import com.google.common.escape.Escapers;
+import com.google.common.net.UrlEscapers;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
@@ -41,11 +44,13 @@ public class OAuthController {
         }
 
         Map<String, String> authorizationMap = toAuthorizationMap(authorization);
-        Multimap<String, String> signingMap = ArrayListMultimap.create();
+        Multimap<String, String> signingMap = TreeMultimap.create();
 
 
         addParamsToSigningMap(signingMap, request.getParameterMap());
         addOAuthParamsToSigningMap(signingMap, authorizationMap);
+
+        String normalizeParameters = normalizeParameters(signingMap);
 
 
         String response = "Success Brah";
@@ -60,18 +65,28 @@ public class OAuthController {
 
 
     Map<String, String> toAuthorizationMap(String authorization) {
-        return authorizationSplitter.split(authorization.substring(6));
+        return authorizationSplitter.split(authorization.substring(6))
+                .entrySet().stream()
     }
 
     void addOAuthParamsToSigningMap(Multimap<String, String> signingMap, Map<String, String> oauthParams){
+        Escaper escaper = UrlEscapers.urlFormParameterEscaper();
         oauthParams.entrySet().stream()
                 .filter(e -> OAUTH_SIGNED_PARAMS.contains(e.getKey()))
-                .forEach(e -> signingMap.put(e.getKey(), e.getValue()));
+                .forEach(e -> signingMap.put(e.getKey(), escaper.escape(e.getValue())));
     }
 
 
-    String normal(Multimap<String, String> signingMap) {
-        Multimaps.index(signingMap, )
+    String normalizeParameters(Multimap<String, String> signingMap) {
+        return  Joiner.on(",").withKeyValueSeparator("=").join(signingMap.entries());
     }
 
+
+    static class OAuthParamOrdering extends Ordering<String> {
+
+        @Override
+        public int compare(String left, String right) {
+            return left.compareTo(right);
+        }
+    }
 }
